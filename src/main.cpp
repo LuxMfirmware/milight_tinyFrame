@@ -38,6 +38,10 @@
 
 #define RS485_DE_PIN 5
 
+#define MODBUS_SEND_WRITE_SINGLE_REGISTER             0xDF
+#define LIGHT_SEND_BRIGHTNESS_SET                     0xE7
+#define LIGHT_SEND_COLOR_SET                          0xE8
+
 
 
 
@@ -87,26 +91,25 @@ void TF_WriteImpl(TinyFrame * const tf, const uint8_t *buff, uint32_t len)
 
 TF_Result GEN_Listener(TinyFrame *tf, TF_Msg *msg)
 {
-  if(msg->data[0] == 0xDF)
-  {
-    if (msg->len > 4)
-    {
-      StaticJsonDocument<50> stateFields;
+  StaticJsonDocument<50> stateFields;
 
-      stateFields[GroupStateFieldNames::STATUS] = ((msg->data[3] == 2) ? "off" : "on");
-      stateFields[GroupStateFieldNames::HUE] = ParsedColor::fromRgb(msg->data[4], msg->data[5], msg->data[6]).hue;
-      stateFields[GroupStateFieldNames::LEVEL] = msg->data[7];
-      //stateFields[GroupStateFieldNames::BRIGHTNESS] = msg->data[7];
-      /*Serial.println(((msg->data[1] << 8) & 0xFF00) | msg->data[2]);
-      Serial.println((int)stateFields[GroupStateFieldNames::HUE]);
-      Serial.println((int)stateFields[GroupStateFieldNames::LEVEL]);
-      delay(4 * 1000);*/
-      milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGB_CCT, ((msg->data[1] << 8) & 0xFF00) | msg->data[2], 1);
-      milightClient->update(stateFields.as<JsonObject>());
-      /*milightClient->updateColor(stateFields);
-      milightClient->updateBrightness(msg->data[7]);*/
-    }
-    
+  if (msg->data[0] == MODBUS_SEND_WRITE_SINGLE_REGISTER)
+  {
+    stateFields[GroupStateFieldNames::STATUS] = ((msg->data[3] == 2) ? "off" : "on");
+    milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, ((msg->data[1] << 8) & 0xFF00) | msg->data[2], 1);
+    milightClient->update(stateFields.as<JsonObject>());
+  }
+  else if(msg->data[0] == LIGHT_SEND_BRIGHTNESS_SET)
+  {
+    stateFields[GroupStateFieldNames::LEVEL] = msg->data[3];
+    milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, ((msg->data[1] << 8) & 0xFF00) | msg->data[2], 1);
+    milightClient->update(stateFields.as<JsonObject>());
+  }
+  else if(msg->data[0] == LIGHT_SEND_COLOR_SET)
+  {
+    stateFields[GroupStateFieldNames::HUE] = ParsedColor::fromRgb(msg->data[3], msg->data[4], msg->data[5]).hue;
+    milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, ((msg->data[1] << 8) & 0xFF00) | msg->data[2], 1);
+    milightClient->update(stateFields.as<JsonObject>());
   }
 
   return TF_STAY;
