@@ -74,7 +74,7 @@ typedef uint8_t TF_COUNT;
 #define TF_USE_MUTEX  0
 
 // Error reporting function. To disable debug, change to empty define
-#define TF_Error(format, ...) printf("[TF] " format "\n", ##__VA_ARGS__)
+#define TF_Error(format, ...) //printf("[TF] " format "\n", ##__VA_ARGS__)
 
 //------------------------- End of user config ------------------------------
 
