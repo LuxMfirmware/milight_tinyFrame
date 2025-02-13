@@ -158,16 +158,13 @@ TF_Result GEN_Listener(TinyFrame *tf, TF_Msg *msg)
 
 TF_Result BINARY_Listerner(TinyFrame *tf, TF_Msg *msg)
 {
-  const uint16_t deviceId = ((msg->data[0] << 8) & 0xFF00) | msg->data[1];
+  StaticJsonDocument<50> stateFields;
 
-  if(stateStore->get(deviceId, 1, MiLightRemoteType::REMOTE_TYPE_RGBW))
-  {
-    StaticJsonDocument<50> stateFields;
+  Serial.println("status");
 
-    stateFields[GroupStateFieldNames::STATUS] = ((msg->data[2] == 2) ? "off" : "on");
-    milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, deviceId, 1);
-    milightClient->update(stateFields.as<JsonObject>());
-  }
+  stateFields[GroupStateFieldNames::STATUS] = ((msg->data[2] == 2) ? "off" : "on");
+  milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, ((msg->data[0] << 8) & 0xFF00) | msg->data[1], 1);
+  milightClient->update(stateFields.as<JsonObject>());
 
   return TF_STAY;
 }
@@ -175,16 +172,11 @@ TF_Result BINARY_Listerner(TinyFrame *tf, TF_Msg *msg)
 
 TF_Result DIMM_Listerner(TinyFrame *tf, TF_Msg *msg)
 {
-  const uint16_t deviceId = ((msg->data[0] << 8) & 0xFF00) | msg->data[1];
+  StaticJsonDocument<50> stateFields;
 
-  if(stateStore->get(deviceId, 1, MiLightRemoteType::REMOTE_TYPE_RGBW))
-  {
-    StaticJsonDocument<50> stateFields;
-
-    stateFields[GroupStateFieldNames::LEVEL] = msg->data[2];
-    milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, ((msg->data[0] << 8) & 0xFF00) | msg->data[1], 1);
-    milightClient->update(stateFields.as<JsonObject>());
-  }
+  stateFields[GroupStateFieldNames::LEVEL] = msg->data[2];
+  milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, ((msg->data[0] << 8) & 0xFF00) | msg->data[1], 1);
+  milightClient->update(stateFields.as<JsonObject>());
 
   return TF_STAY;
 }
@@ -192,16 +184,11 @@ TF_Result DIMM_Listerner(TinyFrame *tf, TF_Msg *msg)
 
 TF_Result RGB_Listerner(TinyFrame *tf, TF_Msg *msg)
 {
-  const uint16_t deviceId = ((msg->data[0] << 8) & 0xFF00) | msg->data[1];
+  StaticJsonDocument<50> stateFields;
 
-  if(stateStore->get(deviceId, 1, MiLightRemoteType::REMOTE_TYPE_RGBW))
-  {
-    StaticJsonDocument<50> stateFields;
-
-    stateFields[GroupStateFieldNames::HUE] = ParsedColor::fromRgb(msg->data[2], msg->data[3], msg->data[4]).hue;
-    milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, ((msg->data[0] << 8) & 0xFF00) | msg->data[1], 1);
-    milightClient->update(stateFields.as<JsonObject>());
-  }
+  stateFields[GroupStateFieldNames::HUE] = ParsedColor::fromRgb(msg->data[2], msg->data[3], msg->data[4]).hue;
+  milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, ((msg->data[0] << 8) & 0xFF00) | msg->data[1], 1);
+  milightClient->update(stateFields.as<JsonObject>());
 
   return TF_STAY;
 }
