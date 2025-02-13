@@ -160,8 +160,6 @@ TF_Result BINARY_Listerner(TinyFrame *tf, TF_Msg *msg)
 {
   StaticJsonDocument<50> stateFields;
 
-  Serial.println("status");
-
   stateFields[GroupStateFieldNames::STATUS] = ((msg->data[2] == 2) ? "off" : "on");
   milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, ((msg->data[0] << 8) & 0xFF00) | msg->data[1], 1);
   milightClient->update(stateFields.as<JsonObject>());
