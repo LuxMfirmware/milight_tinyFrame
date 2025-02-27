@@ -41,6 +41,8 @@
 #define MODBUS_SEND_WRITE_SINGLE_REGISTER             0xDF
 #define LIGHT_SEND_BRIGHTNESS_SET                     0xE7
 #define LIGHT_SEND_COLOR_SET                          0xE8
+#define TF_ACK                                        0x06 // flag za potvrdan odgovor
+#define TF_NAK                                        0x15 // flag za ništa ti nevalja
 
 
 
@@ -156,40 +158,134 @@ TF_Result GEN_Listener(TinyFrame *tf, TF_Msg *msg)
 }
 
 
-TF_Result BINARY_Listerner(TinyFrame *tf, TF_Msg *msg)
+
+
+TF_Result BINARY_GET_Listener(TinyFrame *tf, TF_Msg *msg)
 {
-  StaticJsonDocument<50> stateFields;
-
-  stateFields[GroupStateFieldNames::STATUS] = ((msg->data[2] == 2) ? "off" : "on");
-  milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, ((msg->data[0] << 8) & 0xFF00) | msg->data[1], 1);
-  milightClient->update(stateFields.as<JsonObject>());
-
   return TF_STAY;
 }
 
 
-TF_Result DIMM_Listerner(TinyFrame *tf, TF_Msg *msg)
+TF_Result BINARY_SET_Listener(TinyFrame *tf, TF_Msg *msg)
 {
+  uint8_t resp[4] = {0, 0, 0, TF_ACK}; // pozicija 3 ACK bajta u odgovoru na komande binarnom aktuatoru
   StaticJsonDocument<50> stateFields;
 
-  stateFields[GroupStateFieldNames::LEVEL] = msg->data[2];
-  milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, ((msg->data[0] << 8) & 0xFF00) | msg->data[1], 1);
-  milightClient->update(stateFields.as<JsonObject>());
+  // uzmi adresu
+  uint16_t adr = (uint16_t)(msg->data[0] << 8) | msg->data[1];
 
+  // traži naš  registrovani daljinski
+  for (const auto deviceId : settings.deviceIds)
+  {
+    // provjeri za nule i adrese i daljiskog i da je adresiran registrovan daljinski
+    if (adr && deviceId && (adr == deviceId))
+    {
+      // provjeri i podatak
+      if (msg->data[2] == 1)
+        stateFields[GroupStateFieldNames::STATUS] = "on";
+      else if (msg->data[2] == 2)
+        stateFields[GroupStateFieldNames::STATUS] = "off";
+      else
+        resp[3] = TF_NAK; // nevalja podatak
+      milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, adr, 1);
+      milightClient->update(stateFields.as<JsonObject>());
+      memcpy(resp, msg->data, 3); // kopiraj tri bajta u odgovor
+      msg->data = resp;
+      msg->len = 4;
+      TF_Respond(tf, msg); // Odgovaramo sa novim stanjem
+      break;
+    }
+  }
+  return TF_STAY; // Održavanje trenutnog stanja
+}
+
+
+
+
+
+TF_Result DIMM_GET_Listener(TinyFrame *tf, TF_Msg *msg)
+{
   return TF_STAY;
 }
 
 
-TF_Result RGB_Listerner(TinyFrame *tf, TF_Msg *msg)
+TF_Result DIMM_SET_Listener(TinyFrame *tf, TF_Msg *msg)
 {
+  uint8_t resp[4] = {0, 0, 0, TF_ACK};
   StaticJsonDocument<50> stateFields;
 
-  stateFields[GroupStateFieldNames::HUE] = ParsedColor::fromRgb(msg->data[2], msg->data[3], msg->data[4]).hue;
-  milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, ((msg->data[0] << 8) & 0xFF00) | msg->data[1], 1);
-  milightClient->update(stateFields.as<JsonObject>());
+  // uzmi adresu
+  uint16_t adr = (uint16_t)(msg->data[0] << 8) | msg->data[1];
 
+  // traži naš  registrovani daljinski
+  for (const auto deviceId : settings.deviceIds)
+  {
+    // provjeri za nule i adrese i daljiskog i da je adresiran registrovan daljinski
+    if (adr && deviceId && (adr == deviceId))
+    {
+      if((msg->data[2] >= 0) && (msg->data[2] <= 100)) stateFields[GroupStateFieldNames::LEVEL] = msg->data[2];
+      else resp[3] = TF_NAK; // nevalja podatak
+      milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, adr, 1);
+      milightClient->update(stateFields.as<JsonObject>());
+      memcpy(resp, msg->data, 3); // kopiraj tri bajta u odgovor
+      msg->data = resp;
+      msg->len = 4;
+      TF_Respond(tf, msg); // Odgovaramo na komandu da ne ide resend bezveze
+    }
+  }
+  return TF_STAY; // Održavanje trenutnog stanja
+}
+
+
+TF_Result DIMM_RESTART_Listener(TinyFrame *tf, TF_Msg *msg)
+{
   return TF_STAY;
 }
+
+
+
+
+TF_Result RGB_GET_Listener(TinyFrame *tf, TF_Msg *msg)
+{
+  return TF_STAY;
+}
+
+
+TF_Result RGB_SET_Listener(TinyFrame *tf, TF_Msg *msg)
+{
+  uint8_t resp[6] = {0};
+  StaticJsonDocument<50> stateFields;
+
+  // uzmi adresu
+  uint16_t adr = (uint16_t)(msg->data[0] << 8) | msg->data[1];
+
+  // traži naš  registrovani daljinski
+  for (const auto deviceId : settings.deviceIds)
+  {
+    // provjeri za nule i adrese i daljiskog i da je adresiran registrovan daljinski
+    if (adr && deviceId && (adr == deviceId))
+    {
+      stateFields[GroupStateFieldNames::HUE] = ParsedColor::fromRgb(msg->data[2], msg->data[3], msg->data[4]).hue;
+      milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, adr, 1);
+      milightClient->update(stateFields.as<JsonObject>());
+      memcpy(resp, msg->data, 5); // kopiraj pet bajta u odgovor
+      resp[5] = TF_ACK;           // pozicija 5 ACK bajta u odgovoru na komande set dimeru
+      msg->data = resp;
+      msg->len = 6;
+      TF_Respond(tf, msg); // Odgovaramo na komandu da ne ide resend bezveze
+      break;
+    }
+  }
+  return TF_STAY; // Održavanje trenutnog stanja
+}
+
+TF_Result RGB_RESET_Listener(TinyFrame *tf, TF_Msg *msg)
+{
+  return TF_STAY;
+}
+
+
+
 
 
 TF_Result ID_Listener(TinyFrame *tf, TF_Msg *msg)
@@ -521,9 +617,14 @@ void setup() {
 
   TF_InitStatic(&tfapp, TF_SLAVE);
   //TF_AddGenericListener(&tfapp, GEN_Listener);
-  TF_AddTypeListener(&tfapp, BINARY_SET, BINARY_Listerner);
-  TF_AddTypeListener(&tfapp, DIMMER_SET, DIMM_Listerner);
-  TF_AddTypeListener(&tfapp, RGB_SET, RGB_Listerner);
+  TF_AddTypeListener(&tfapp, BINARY_GET, BINARY_GET_Listener);
+  TF_AddTypeListener(&tfapp, BINARY_SET, BINARY_SET_Listener);
+  TF_AddTypeListener(&tfapp, DIMMER_GET, DIMM_GET_Listener);
+  TF_AddTypeListener(&tfapp, DIMMER_SET, DIMM_SET_Listener);
+  TF_AddTypeListener(&tfapp, DIMMER_RESTART, DIMM_RESTART_Listener);
+  TF_AddTypeListener(&tfapp, RGB_GET, RGB_GET_Listener);
+  TF_AddTypeListener(&tfapp, RGB_SET, RGB_SET_Listener);
+  TF_AddTypeListener(&tfapp, RGB_RESET, RGB_RESET_Listener);
 
   
 
