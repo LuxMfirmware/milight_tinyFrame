@@ -27,6 +27,7 @@
 #include <HomeAssistantDiscoveryClient.h>
 #include <TransitionController.h>
 #include <ProjectWifi.h>
+#include <MiLightCommands.h>
 
 #include <vector>
 #include <memory>
@@ -265,7 +266,8 @@ TF_Result RGB_SET_Listener(TinyFrame *tf, TF_Msg *msg)
     // provjeri za nule i adrese i daljiskog i da je adresiran registrovan daljinski
     if (adr && deviceId && (adr == deviceId))
     {
-      stateFields[GroupStateFieldNames::HUE] = ParsedColor::fromRgb(msg->data[2], msg->data[3], msg->data[4]).hue;
+      if((msg->data[2] == 255) && (msg->data[3] == 255) && (msg->data[4] == 255))     stateFields[GroupStateFieldNames::COMMAND] = MiLightCommandNames::SET_WHITE;
+      else     stateFields[GroupStateFieldNames::HUE] = ParsedColor::fromRgb(msg->data[2], msg->data[3], msg->data[4]).hue;
       milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, adr, 1);
       milightClient->update(stateFields.as<JsonObject>());
       memcpy(resp, msg->data, 5); // kopiraj pet bajta u odgovor
