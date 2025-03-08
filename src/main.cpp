@@ -188,8 +188,13 @@ TF_Result BINARY_SET_Listener(TinyFrame *tf, TF_Msg *msg)
         stateFields[GroupStateFieldNames::STATUS] = "off";
       else
         resp[3] = TF_NAK; // nevalja podatak
-      milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, adr, 1);
-      milightClient->update(stateFields.as<JsonObject>());
+
+      if (resp[3] != TF_NAK)
+      {
+        milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, adr, 1);
+        milightClient->update(stateFields.as<JsonObject>());
+      }
+
       memcpy(resp, msg->data, 3); // kopiraj tri bajta u odgovor
       msg->data = resp;
       msg->len = 4;
@@ -226,8 +231,12 @@ TF_Result DIMM_SET_Listener(TinyFrame *tf, TF_Msg *msg)
     {
       if((msg->data[2] >= 0) && (msg->data[2] <= 100)) stateFields[GroupStateFieldNames::LEVEL] = msg->data[2];
       else resp[3] = TF_NAK; // nevalja podatak
-      milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, adr, 1);
-      milightClient->update(stateFields.as<JsonObject>());
+      
+      if(resp[3] != TF_NAK)
+      {
+        milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, adr, 1);
+        milightClient->update(stateFields.as<JsonObject>());
+      }
       memcpy(resp, msg->data, 3); // kopiraj tri bajta u odgovor
       msg->data = resp;
       msg->len = 4;
