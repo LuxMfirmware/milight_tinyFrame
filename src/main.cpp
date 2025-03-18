@@ -175,31 +175,34 @@ TF_Result BINARY_SET_Listener(TinyFrame *tf, TF_Msg *msg)
   // uzmi adresu
   uint16_t adr = (uint16_t)(msg->data[0] << 8) | msg->data[1];
 
-  // traži naš  registrovani daljinski
-  for (const auto deviceId : settings.deviceIds)
+  if(adr)
   {
-    // provjeri za nule i adrese i daljiskog i da je adresiran registrovan daljinski
-    if (adr && deviceId && (adr == deviceId))
+    // traži naš  registrovani daljinski
+    for (const auto deviceId : settings.deviceIds)
     {
-      // provjeri i podatak
-      if (msg->data[2] == 1)
-        stateFields[GroupStateFieldNames::STATUS] = "on";
-      else if (msg->data[2] == 2)
-        stateFields[GroupStateFieldNames::STATUS] = "off";
-      else
-        resp[3] = TF_NAK; // nevalja podatak
-
-      if (resp[3] != TF_NAK)
+      // provjeri za nule i adrese i daljiskog i da je adresiran registrovan daljinski
+      if (adr == deviceId)
       {
-        milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, adr, 1);
-        milightClient->update(stateFields.as<JsonObject>());
-      }
+        // provjeri i podatak
+        if (msg->data[2] == 1)
+          stateFields[GroupStateFieldNames::STATUS] = "on";
+        else if (msg->data[2] == 2)
+          stateFields[GroupStateFieldNames::STATUS] = "off";
+        else
+          resp[3] = TF_NAK; // nevalja podatak
 
-      memcpy(resp, msg->data, 3); // kopiraj tri bajta u odgovor
-      msg->data = resp;
-      msg->len = 4;
-      TF_Respond(tf, msg); // Odgovaramo sa novim stanjem
-      break;
+        memcpy(resp, msg->data, 3); // kopiraj tri bajta u odgovor
+        msg->data = resp;
+        msg->len = 4;
+        TF_Respond(tf, msg); // Odgovaramo sa novim stanjem
+
+        if (resp[3] != TF_NAK)
+        {
+          milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, adr, 1);
+          milightClient->update(stateFields.as<JsonObject>());
+        }
+        break;
+      }
     }
   }
   return TF_STAY; // Održavanje trenutnog stanja
@@ -223,24 +226,30 @@ TF_Result DIMM_SET_Listener(TinyFrame *tf, TF_Msg *msg)
   // uzmi adresu
   uint16_t adr = (uint16_t)(msg->data[0] << 8) | msg->data[1];
 
-  // traži naš  registrovani daljinski
-  for (const auto deviceId : settings.deviceIds)
+  if(adr)
   {
-    // provjeri za nule i adrese i daljiskog i da je adresiran registrovan daljinski
-    if (adr && deviceId && (adr == deviceId))
+    // traži naš  registrovani daljinski
+    for (const auto deviceId : settings.deviceIds)
     {
-      if((msg->data[2] >= 0) && (msg->data[2] <= 100)) stateFields[GroupStateFieldNames::LEVEL] = msg->data[2];
-      else resp[3] = TF_NAK; // nevalja podatak
-      
-      if(resp[3] != TF_NAK)
+      // provjeri za nule i adrese i daljiskog i da je adresiran registrovan daljinski
+      if (adr == deviceId)
       {
-        milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, adr, 1);
-        milightClient->update(stateFields.as<JsonObject>());
+        if ((msg->data[2] >= 0) && (msg->data[2] <= 100))
+          stateFields[GroupStateFieldNames::LEVEL] = msg->data[2];
+        else
+          resp[3] = TF_NAK; // nevalja podatak
+
+        memcpy(resp, msg->data, 3); // kopiraj tri bajta u odgovor
+        msg->data = resp;
+        msg->len = 4;
+        TF_Respond(tf, msg); // Odgovaramo na komandu da ne ide resend bezveze
+
+        if (resp[3] != TF_NAK)
+        {
+          milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, adr, 1);
+          milightClient->update(stateFields.as<JsonObject>());
+        }
       }
-      memcpy(resp, msg->data, 3); // kopiraj tri bajta u odgovor
-      msg->data = resp;
-      msg->len = 4;
-      TF_Respond(tf, msg); // Odgovaramo na komandu da ne ide resend bezveze
     }
   }
   return TF_STAY; // Održavanje trenutnog stanja
@@ -269,22 +278,30 @@ TF_Result RGB_SET_Listener(TinyFrame *tf, TF_Msg *msg)
   // uzmi adresu
   uint16_t adr = (uint16_t)(msg->data[0] << 8) | msg->data[1];
 
-  // traži naš  registrovani daljinski
-  for (const auto deviceId : settings.deviceIds)
+  if(adr)
   {
-    // provjeri za nule i adrese i daljiskog i da je adresiran registrovan daljinski
-    if (adr && deviceId && (adr == deviceId))
+    // traži naš  registrovani daljinski
+    for (const auto deviceId : settings.deviceIds)
     {
-      if((msg->data[2] == 255) && (msg->data[3] == 255) && (msg->data[4] == 255))     stateFields[GroupStateFieldNames::COMMAND] = MiLightCommandNames::SET_WHITE;
-      else     stateFields[GroupStateFieldNames::HUE] = ParsedColor::fromRgb(msg->data[2], msg->data[3], msg->data[4]).hue;
-      milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, adr, 1);
-      milightClient->update(stateFields.as<JsonObject>());
-      memcpy(resp, msg->data, 5); // kopiraj pet bajta u odgovor
-      resp[5] = TF_ACK;           // pozicija 5 ACK bajta u odgovoru na komande set dimeru
-      msg->data = resp;
-      msg->len = 6;
-      TF_Respond(tf, msg); // Odgovaramo na komandu da ne ide resend bezveze
-      break;
+      // provjeri za nule i adrese i daljiskog i da je adresiran registrovan daljinski
+      if (adr == deviceId)
+      {
+        if ((msg->data[2] == 255) && (msg->data[3] == 255) && (msg->data[4] == 255))
+          stateFields[GroupStateFieldNames::COMMAND] = MiLightCommandNames::SET_WHITE;
+        else
+          stateFields[GroupStateFieldNames::HUE] = ParsedColor::fromRgb(msg->data[2], msg->data[3], msg->data[4]).hue;
+
+        memcpy(resp, msg->data, 5); // kopiraj pet bajta u odgovor
+        resp[5] = TF_ACK;           // pozicija 5 ACK bajta u odgovoru na komande set dimeru
+        msg->data = resp;
+        msg->len = 6;
+        TF_Respond(tf, msg); // Odgovaramo na komandu da ne ide resend bezveze
+
+        milightClient->prepare(MiLightRemoteType::REMOTE_TYPE_RGBW, adr, 1);
+        milightClient->update(stateFields.as<JsonObject>());
+
+        break;
+      }
     }
   }
   return TF_STAY; // Održavanje trenutnog stanja
